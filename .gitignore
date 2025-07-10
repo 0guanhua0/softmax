@@ -1,0 +1,5 @@
+**/*.log
+*.egg-info/
+.envrc
+__pycache__/
+build/

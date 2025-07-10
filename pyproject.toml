@@ -1,0 +1,13 @@
+[project]
+name = "softmax"
+version = "0.1.0"
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "tinygrad == 0.10.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+]
