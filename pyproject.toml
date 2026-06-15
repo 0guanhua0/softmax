@@ -11,3 +11,6 @@ dependencies = [
 dev = [
     "pre-commit",
 ]
+
+[tool.ruff.lint]
+extend-select = ["I"]
