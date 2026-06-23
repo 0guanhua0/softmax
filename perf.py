@@ -9,23 +9,23 @@ from tinygrad.tensor import Tensor
 
 
 def tune(
-    sched: Callable,
+    func: Callable,
     n: int,
-    config: dict[str, list],
+    arg: dict[str, list],
     run: int = 10,
 ) -> dict:
     best_time, best_pair = float("inf"), None
     rng = np.random.default_rng()
     data = rng.standard_normal(size=(n), dtype=np.float32)
 
-    for k, values in config.items():
-        for v in values:
+    for k, val in arg.items():
+        for v in val:
             kwargs = {"global_size": [1, 1, 1], k: v}
 
             _time = []
             for _ in range(run):
                 st = time.perf_counter()
-                sched(n, data, **kwargs)
+                func(n, data, **kwargs)
                 Device[Device.DEFAULT].synchronize()
                 _time.append(time.perf_counter() - st)
 
@@ -51,21 +51,21 @@ def plot(res: dict):
 
 
 def run(kernel):
-    config = {
+    arg = {
         "local_size": [[2**i, 1, 1] for i in range(5, 11)],
     }
     n_list = [2**i for i in range(5, 28)]
-    rng = np.random.default_rng()
 
-    param_tune = {}
+    arg_tune = {}
     for k in list(kernel.keys()):
-        param_tune[k] = {}
+        arg_tune[k] = {}
         for n in n_list:
-            param_tune[k][n] = tune(kernel[k], n, config)
+            arg_tune[k][n] = tune(kernel[k], n, arg)
 
     res = {name: {"n": [], "gflops": []} for name in ["tinygrad"] + list(kernel.keys())}
-    NUM_run = 100
+    num_run = 100
 
+    rng = np.random.default_rng()
     for n in n_list:
         print(f"n {n}")
         op = 5 * n
@@ -76,7 +76,7 @@ def run(kernel):
             return t.softmax().realize()
 
         _time = []
-        for _ in range(NUM_run):
+        for _ in range(num_run):
             st = time.perf_counter()
             tiny_out = tiny_jit(Tensor(data)).realize().numpy()
             Device[Device.DEFAULT].synchronize()
@@ -87,10 +87,10 @@ def run(kernel):
         print(f"tinygrad {gflops:.2f} gflops")
 
         for name, func in kernel.items():
-            local_size = param_tune.get(name).get(n).get("local_size")
+            local_size = arg_tune.get(name).get(n).get("local_size")
 
             _time = []
-            for _ in range(NUM_run):
+            for _ in range(num_run):
                 st = time.perf_counter()
                 out = func(n, data, global_size=[1, 1, 1], local_size=local_size)
                 Device[Device.DEFAULT].synchronize()

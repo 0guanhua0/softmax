@@ -80,6 +80,49 @@ kernel void k2(device float *d0, device float *d1, uint3 gid [[threadgroup_posit
 """
 
 
+k3 = """
+#include <metal_stdlib>
+using namespace metal;
+
+kernel void k3(device float *d0, device float *d1, uint3 gid [[threadgroup_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]]) {{
+    size_t lid0 = lid.x;
+    threadgroup float reduce[{local_size[0]}];
+
+    float max_val = -FLT_MAX;
+    for (size_t i = lid0; i < (size_t){n}; i += {local_size[0]}) {{
+        max_val = fmax(max_val, d1[i]);
+    }}
+    reduce[lid0] = max_val;
+    for (size_t stride = {local_size[0]} / 2; stride > 0; stride /= 2) {{
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (lid0 < stride) {{
+            reduce[lid0] = fmax(reduce[lid0], reduce[lid0 + stride]);
+        }}
+    }}
+
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    max_val = reduce[0];
+    float sum_exp = 0.0f;
+    for (size_t i = lid0; i < (size_t){n}; i += {local_size[0]}) {{
+        sum_exp += exp(d1[i] - max_val);
+    }}
+    reduce[lid0] = sum_exp;
+    for (size_t stride = {local_size[0]} / 2; stride > 0; stride /= 2) {{
+        threadgroup_barrier(mem_flags::mem_threadgroup);
+        if (lid0 < stride) {{
+            reduce[lid0] += reduce[lid0 + stride];
+        }}
+    }}
+
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+    sum_exp = reduce[0];
+    for (size_t i = lid0; i < (size_t){n}; i += {local_size[0]}) {{
+        d0[i] = exp(d1[i] - max_val) / sum_exp;
+    }}
+}}
+"""
+
+
 def _sched(
     name: str,
     kernel: str,
@@ -111,5 +154,6 @@ def _sched(
 if __name__ == "__main__":
     kernel = {
         "2": partial(_sched, "k2", k2),
+        "3": partial(_sched, "k3", k3),
     }
     perf.run(kernel)
