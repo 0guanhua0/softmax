@@ -95,7 +95,7 @@ def run(kernel):
                 out = func(n, data, global_size=[1, 1, 1], local_size=local_size)
                 Device[Device.DEFAULT].synchronize()
                 _time.append(time.perf_counter() - st)
-            np.testing.assert_allclose(out, tiny_out, rtol=1e-5, atol=1e-5)
+                np.testing.assert_allclose(out, tiny_out, rtol=1e-5, atol=1e-5)
 
             gflops = op / np.median(_time) / 1e9
             res[name]["n"].append(n)
