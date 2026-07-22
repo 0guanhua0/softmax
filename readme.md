@@ -51,5 +51,11 @@ simd_max
 simd_sum
 ```
 
+## 5
+Online normalizer calculation for softmax
+```
+exp(data - global_max) = exp(data - local_max) * exp(local_max - global_max)
+```
+
 # perf
 ![perf](perf.png)
