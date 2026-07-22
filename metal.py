@@ -439,7 +439,7 @@ kernel void k7_2(device float *data0, device float *data1, uint3 gid [[threadgro
 
     float thread_max = -FLT_MAX;
     float thread_sum = 0.0f;
-    for (size_t i = 0; i < (size_t){global_size[0]}; i++) {{
+    for (size_t i = 0; i < (size_t){global_size[0]}; ++i) {{
         float max_val = data1[i * {local_size[0]} + lid0];
         float sum_exp = data1[i * {local_size[0]} + lid0 + {global_size[0]} * {local_size[0]}];
         float new_max = thread_max > max_val ? thread_max : max_val;

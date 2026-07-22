@@ -63,5 +63,34 @@ vector
 float4
 ```
 
+## 7
+multi pass reduce
+
+loop unrolling
+```
+sm1
+thread 1 max(d1, local_max) -> sum(old_sum * exp(local_max - max), exp(d1 - max))
+thread 1 max(d2, local_max) -> sum(old_sum * exp(local_max - max), exp(d2 - max))
+
+sm2
+thread 1 max(d3, local_max) -> sum(old_sum * exp(local_max - max), exp(d3 - max))
+thread 1 max(d4, local_max) -> sum(old_sum * exp(local_max - max), exp(d4 - max))
+
+---
+
+sm1
+max(sm1_max, sm2_max) -> sum(sm1_sum * exp(sm1_max - max), sm2_sum * exp(sm2_max - max))
+
+---
+
+sm1
+thread 1 exp(d1 - max) / sum
+thread 1 exp(d2 - max) / sum
+
+sm2
+thread 1 exp(d3 - max) / sum
+thread 1 exp(d4 - max) / sum
+```
+
 # perf
 ![perf](perf.png)
