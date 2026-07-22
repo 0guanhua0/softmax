@@ -44,5 +44,12 @@ thread 1 exp(d1 - max) / sum, exp(d3 - max) / sum
 thread 2 exp(d2 - max) / sum, exp(d4 - max) / sum
 ```
 
+## 4
+lockstep
+```
+simd_max
+simd_sum
+```
+
 # perf
 ![perf](perf.png)
