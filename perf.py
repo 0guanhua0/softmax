@@ -1,3 +1,6 @@
+import gc
+import itertools
+import random
 import time
 from typing import Callable
 
@@ -8,40 +11,44 @@ from tinygrad.device import Device
 from tinygrad.tensor import Tensor
 
 
-def tune(
-    func: Callable,
-    n: int,
-    arg: dict[str, list],
-    run: int = 10,
-) -> dict:
-    best_time, best_pair = float("inf"), None
+def tune(func: Callable, n: int, arg: dict[str, list], run: int = 2**4) -> dict:
+    best_time, best_kwargs = float("inf"), None
     rng = np.random.default_rng()
     data = rng.standard_normal(size=(n), dtype=np.float32)
 
-    for k, val in arg.items():
-        for v in val:
-            kwargs = {"global_size": [1, 1, 1], k: v}
+    keys = list(arg.keys())
+    for combo in itertools.product(*arg.values()):
+        kwargs = dict(zip(keys, combo))
 
-            _time = []
-            for _ in range(run):
-                st = time.perf_counter()
-                func(n, data, **kwargs)
-                Device[Device.DEFAULT].synchronize()
-                _time.append(time.perf_counter() - st)
+        ctx = func(n, data, **kwargs)
 
-            t = np.median(_time)
-            if t < best_time:
-                best_time = t
-                best_pair = {k: v}
+        _time = []
+        for _ in range(run):
+            Device[Device.DEFAULT].synchronize()
+            t0 = time.perf_counter()
+            ctx["run"]()
+            Device[Device.DEFAULT].synchronize()
+            _time.append(time.perf_counter() - t0)
+        ctx["free"]()
+        Device[Device.DEFAULT].allocator.free_cache()
 
-    return best_pair
+        if np.median(_time) < best_time:
+            best_time = np.median(_time)
+            best_kwargs = kwargs
+
+    return best_kwargs
 
 
 def plot(res: dict):
     plt.style.use("dark_background")
     fig, ax = plt.subplots()
     for name, data in res.items():
-        ax.plot(data["n"], data["gflops"], label=name)
+        n = np.array(data["n"])
+        g = np.array(data["gflops"])
+        idx = np.argsort(n)
+        n, g = n[idx], g[idx]
+
+        ax.plot(n, g, label=name)
 
     ax.set_xscale("log", base=2)
     ax.set_ylabel("gflops")
@@ -52,18 +59,26 @@ def plot(res: dict):
 
 def run(kernel):
     arg = {
-        "local_size": [[2**i, 1, 1] for i in range(5, 11)],
+        "global_size": [[i, 1, 1] for i in range(8, 33)],
+        "local_size": [[2**i, 1, 1] for i in range(8, 11)],
     }
-    n_list = [2**i for i in range(5, 28)]
+    n_list = []
+    for i in range(10, 26):
+        n_list.append(2**i)
+        n_list.extend(random.sample(range(2**i, 2 ** (i + 1)), 2**5))
 
     arg_tune = {}
     for k in list(kernel.keys()):
         arg_tune[k] = {}
+        k_arg = {
+            "global_size": arg["global_size"] if k == "7" else [[1, 1, 1]],
+            "local_size": arg["local_size"],
+        }
         for n in n_list:
-            arg_tune[k][n] = tune(kernel[k], n, arg)
+            arg_tune[k][n] = tune(kernel[k], n, k_arg)
 
     res = {name: {"n": [], "gflops": []} for name in ["tinygrad"] + list(kernel.keys())}
-    num_run = 100
+    num_run = 2**6
 
     rng = np.random.default_rng()
     for n in n_list:
@@ -75,31 +90,56 @@ def run(kernel):
         def tiny_jit(t: Tensor) -> Tensor:
             return t.softmax().realize()
 
+        t_in = Tensor(data)
         _time = []
         for _ in range(num_run):
-            st = time.perf_counter()
-            tiny_out = tiny_jit(Tensor(data)).realize().numpy()
             Device[Device.DEFAULT].synchronize()
-            _time.append(time.perf_counter() - st)
+            t0 = time.perf_counter()
+            tiny_jit(t_in).realize()
+            Device[Device.DEFAULT].synchronize()
+            _time.append(time.perf_counter() - t0)
+
+        tiny_out = tiny_jit(t_in).realize().numpy()
+        Device[Device.DEFAULT].synchronize()
+        del t_in
+        del tiny_jit
+
+        gc.collect()
+        Device[Device.DEFAULT].allocator.free_cache()
         gflops = op / np.median(_time) / 1e9
         res["tinygrad"]["n"].append(n)
         res["tinygrad"]["gflops"].append(gflops)
         print(f"tinygrad {gflops:.2f} gflops")
 
         for name, func in kernel.items():
-            local_size = arg_tune.get(name).get(n).get("local_size")
+            best_kwargs = arg_tune.get(name).get(n)
+            ctx = func(n, data, **best_kwargs)
 
             _time = []
             for _ in range(num_run):
-                st = time.perf_counter()
-                out = func(n, data, global_size=[1, 1, 1], local_size=local_size)
                 Device[Device.DEFAULT].synchronize()
-                _time.append(time.perf_counter() - st)
-                np.testing.assert_allclose(out, tiny_out, rtol=1e-5, atol=1e-5)
+                t0 = time.perf_counter()
+                ctx["run"]()
+                Device[Device.DEFAULT].synchronize()
+                _time.append(time.perf_counter() - t0)
+
+            out = ctx["copyout"]()
+
+            chunk_size = 2**20
+            for i in range(0, n, chunk_size):
+                np.testing.assert_allclose(
+                    out[i : i + chunk_size],
+                    tiny_out[i : i + chunk_size],
+                    rtol=1e-5,
+                    atol=1e-5,
+                )
+
+            ctx["free"]()
+            Device[Device.DEFAULT].allocator.free_cache()
 
             gflops = op / np.median(_time) / 1e9
             res[name]["n"].append(n)
             res[name]["gflops"].append(gflops)
-            print(f"{name} {gflops:.2f} gflops")
+            print(f"{name} {gflops:.2f} gflops {best_kwargs}")
 
     plot(res)
