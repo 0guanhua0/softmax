@@ -29,5 +29,20 @@ thread 1 exp(d1 - max) / sum, exp(d2 - max) / sum
 thread 2 exp(d3 - max) / sum, exp(d4 - max) / sum
 ```
 
+## 3
+coalescing
+```
+thread 1 max(d1, d3)
+thread 2 max(d2, d4)
+reduce thread max -> max(d1, d2, d3, d4)
+
+thread 1 sum(exp(d1 - max), exp(d3 - max))
+thread 2 sum(exp(d2 - max), exp(d4 - max))
+reduce thread sum -> sum(exp(data[i] - max))
+
+thread 1 exp(d1 - max) / sum, exp(d3 - max) / sum
+thread 2 exp(d2 - max) / sum, exp(d4 - max) / sum
+```
+
 # perf
 ![perf](perf.png)
