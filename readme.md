@@ -57,5 +57,11 @@ Online normalizer calculation for softmax
 exp(data - global_max) = exp(data - local_max) * exp(local_max - global_max)
 ```
 
+## 6
+vector
+```
+float4
+```
+
 # perf
 ![perf](perf.png)
