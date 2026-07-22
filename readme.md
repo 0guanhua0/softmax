@@ -8,10 +8,26 @@ $$\Large\text{softmax}(x_i) = \frac{e^{x_i - max(x)}}{\sum_{j=1}^{K} e^{x_j - ma
 data = [d1, d2, d3, d4]
 
 ## 1
+```
 thread 1 max(d1, d2, d3, d4) -> sum(exp(data[i] - max)) -> exp(d1 - max) / sum
 thread 2 max(d1, d2, d3, d4) -> sum(exp(data[i] - max)) -> exp(d2 - max) / sum
 thread 3 max(d1, d2, d3, d4) -> sum(exp(data[i] - max)) -> exp(d3 - max) / sum
 thread 4 max(d1, d2, d3, d4) -> sum(exp(data[i] - max)) -> exp(d4 - max) / sum
+```
+
+## 2
+```
+thread 1 max(d1, d2)
+thread 2 max(d3, d4)
+reduce thread max -> max(d1, d2, d3, d4)
+
+thread 1 sum(exp(d1 - max), exp(d2 - max))
+thread 2 sum(exp(d3 - max), exp(d4 - max))
+reduce thread sum -> sum(exp(data[i] - max))
+
+thread 1 exp(d1 - max) / sum, exp(d2 - max) / sum
+thread 2 exp(d3 - max) / sum, exp(d4 - max) / sum
+```
 
 # perf
 ![perf](perf.png)

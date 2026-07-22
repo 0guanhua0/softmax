@@ -63,7 +63,7 @@ def run(kernel):
         "local_size": [[2**i, 1, 1] for i in range(8, 11)],
     }
     n_list = []
-    for i in range(10, 26):
+    for i in range(10, 25):
         n_list.append(2**i)
         n_list.extend(random.sample(range(2**i, 2 ** (i + 1)), 2**5))
 

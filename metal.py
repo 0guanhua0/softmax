@@ -49,10 +49,10 @@ using namespace metal;
 kernel void k2(device float *data0, device float *data1, uint3 gid [[threadgroup_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]]) {{
     size_t lid0 = lid.x;
     threadgroup float reduce[{local_size[0]}];
-    size_t BLOCK = ({n_pad} + {local_size[0]} - 1) / {local_size[0]};
+    size_t tile = {n_pad} / {local_size[0]};
 
     float max_val = -FLT_MAX;
-    for (size_t i = lid0 * BLOCK; i < min((lid0 + 1) * BLOCK, (size_t){n_pad}); ++i) {{
+    for (size_t i = lid0 * tile; i < (lid0 + 1) * tile; ++i) {{
         max_val = fmax(max_val, data1[i]);
     }}
     reduce[lid0] = max_val;
@@ -66,7 +66,7 @@ kernel void k2(device float *data0, device float *data1, uint3 gid [[threadgroup
     threadgroup_barrier(mem_flags::mem_threadgroup);
     max_val = reduce[0];
     float sum_exp = 0.0f;
-    for (size_t i = lid0 * BLOCK; i < min((lid0 + 1) * BLOCK, (size_t){n_pad}); ++i) {{
+    for (size_t i = lid0 * tile; i < (lid0 + 1) * tile; ++i) {{
         sum_exp += exp(data1[i] - max_val);
     }}
     reduce[lid0] = sum_exp;
@@ -79,7 +79,7 @@ kernel void k2(device float *data0, device float *data1, uint3 gid [[threadgroup
 
     threadgroup_barrier(mem_flags::mem_threadgroup);
     sum_exp = reduce[0];
-    for (size_t i = lid0 * BLOCK; i < min((lid0 + 1) * BLOCK, (size_t){n_pad}); ++i) {{
+    for (size_t i = lid0 * tile; i < (lid0 + 1) * tile; ++i) {{
         data0[i] = exp(data1[i] - max_val) / sum_exp;
     }}
 }}
@@ -309,7 +309,8 @@ def _sched(
     global_size: list[int],
     local_size: list[int],
 ) -> dict:
-    n_pad = (n + 3) // 4 * 4
+    pad = local_size[0] * 4
+    n_pad = ((n + pad - 1) // pad) * pad
     data0_buf, data1_buf = metalalloc.alloc(n_pad * 4), metalalloc.alloc(n_pad * 4)
     buf = np.frombuffer(metalalloc._as_buffer(data1_buf), dtype=np.float32)
     buf[:n] = data
