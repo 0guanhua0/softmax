@@ -6,6 +6,7 @@ from typing import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from tinygrad import TinyJit
 from tinygrad.device import Device
 from tinygrad.tensor import Tensor
@@ -77,7 +78,10 @@ def run(kernel):
         for n in n_list:
             arg_tune[k][n] = tune(kernel[k], n, k_arg)
 
-    res = {name: {"n": [], "gflops": []} for name in ["tinygrad"] + list(kernel.keys())}
+    res = {
+        name: {"n": [], "gflops": []}
+        for name in ["pytorch", "tinygrad"] + list(kernel.keys())
+    }
     num_run = 2**6
 
     rng = np.random.default_rng()
@@ -98,18 +102,32 @@ def run(kernel):
             tiny_jit(t_in).realize()
             Device[Device.DEFAULT].synchronize()
             _time.append(time.perf_counter() - t0)
-
         tiny_out = tiny_jit(t_in).realize().numpy()
         Device[Device.DEFAULT].synchronize()
         del t_in
         del tiny_jit
-
         gc.collect()
         Device[Device.DEFAULT].allocator.free_cache()
         gflops = op / np.median(_time) / 1e9
         res["tinygrad"]["n"].append(n)
         res["tinygrad"]["gflops"].append(gflops)
         print(f"tinygrad {gflops:.2f} gflops")
+
+        t_mps = torch.from_numpy(data).to("mps")
+        _time = []
+        for _ in range(num_run):
+            torch.mps.synchronize()
+            t0 = time.perf_counter()
+            torch.softmax(t_mps, dim=0)
+            torch.mps.synchronize()
+            _time.append(time.perf_counter() - t0)
+        del t_mps
+        gc.collect()
+        torch.mps.empty_cache()
+        gflops = op / np.median(_time) / 1e9
+        res["pytorch"]["n"].append(n)
+        res["pytorch"]["gflops"].append(gflops)
+        print(f"pytorch {gflops:.2f} gflops")
 
         for name, func in kernel.items():
             best_kwargs = arg_tune.get(name).get(n)
