@@ -2,12 +2,10 @@ from functools import cache, partial
 
 import numpy as np
 from tinygrad.device import Device
+from tinygrad.runtime.autogen import metal
 from tinygrad.runtime.ops_metal import (
     MetalAllocator,
     MetalProgram,
-    msg,
-    objc_instance,
-    to_struct,
     wait_check,
 )
 
@@ -520,37 +518,37 @@ def _sched_7(
     dev = Device[Device.DEFAULT]
 
     def run_fn():
-        command_buffer = msg("commandBuffer", objc_instance)(dev.mtl_queue)
+        command_buffer = dev.mtl_queue.commandBuffer().retained()
 
-        enc = msg("computeCommandEncoder", objc_instance)(command_buffer)
-        msg("setComputePipelineState:")(enc, p1.pipeline_state)
-        msg("setBuffer:offset:atIndex:")(enc, data2_buf.buf, data2_buf.offset, 0)
-        msg("setBuffer:offset:atIndex:")(enc, data1_buf.buf, data1_buf.offset, 1)
-        msg("dispatchThreadgroups:threadsPerThreadgroup:")(
-            enc, to_struct(*global_size), to_struct(*local_size)
+        enc = command_buffer.computeCommandEncoder().retained()
+        enc.setComputePipelineState(p1.pipeline_state)
+        enc.setBuffer_offset_atIndex(data2_buf.buf, data2_buf.offset, 0)
+        enc.setBuffer_offset_atIndex(data1_buf.buf, data1_buf.offset, 1)
+        enc.dispatchThreadgroups_threadsPerThreadgroup(
+            metal.MTLSize(*global_size), metal.MTLSize(*local_size)
         )
-        msg("endEncoding")(enc)
+        enc.endEncoding()
 
-        enc = msg("computeCommandEncoder", objc_instance)(command_buffer)
-        msg("setComputePipelineState:")(enc, p2.pipeline_state)
-        msg("setBuffer:offset:atIndex:")(enc, data_glob.buf, data_glob.offset, 0)
-        msg("setBuffer:offset:atIndex:")(enc, data2_buf.buf, data2_buf.offset, 1)
-        msg("dispatchThreadgroups:threadsPerThreadgroup:")(
-            enc, to_struct(1, 1, 1), to_struct(*local_size)
+        enc = command_buffer.computeCommandEncoder().retained()
+        enc.setComputePipelineState(p2.pipeline_state)
+        enc.setBuffer_offset_atIndex(data_glob.buf, data_glob.offset, 0)
+        enc.setBuffer_offset_atIndex(data2_buf.buf, data2_buf.offset, 1)
+        enc.dispatchThreadgroups_threadsPerThreadgroup(
+            metal.MTLSize(1, 1, 1), metal.MTLSize(*local_size)
         )
-        msg("endEncoding")(enc)
+        enc.endEncoding()
 
-        enc = msg("computeCommandEncoder", objc_instance)(command_buffer)
-        msg("setComputePipelineState:")(enc, p3.pipeline_state)
-        msg("setBuffer:offset:atIndex:")(enc, data0_buf.buf, data0_buf.offset, 0)
-        msg("setBuffer:offset:atIndex:")(enc, data1_buf.buf, data1_buf.offset, 1)
-        msg("setBuffer:offset:atIndex:")(enc, data_glob.buf, data_glob.offset, 2)
-        msg("dispatchThreadgroups:threadsPerThreadgroup:")(
-            enc, to_struct(*global_size), to_struct(*local_size)
+        enc = command_buffer.computeCommandEncoder().retained()
+        enc.setComputePipelineState(p3.pipeline_state)
+        enc.setBuffer_offset_atIndex(data0_buf.buf, data0_buf.offset, 0)
+        enc.setBuffer_offset_atIndex(data1_buf.buf, data1_buf.offset, 1)
+        enc.setBuffer_offset_atIndex(data_glob.buf, data_glob.offset, 2)
+        enc.dispatchThreadgroups_threadsPerThreadgroup(
+            metal.MTLSize(*global_size), metal.MTLSize(*local_size)
         )
-        msg("endEncoding")(enc)
+        enc.endEncoding()
 
-        msg("commit")(command_buffer)
+        command_buffer.commit()
         wait_check(command_buffer)
 
     def copyout_fn():

@@ -4,7 +4,7 @@ version = "0.1.0"
 dependencies = [
     "matplotlib",
     "numpy",
-    "tinygrad == 0.10.3",
+    "tinygrad",
 ]
 
 [project.optional-dependencies]
