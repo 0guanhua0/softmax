@@ -20,9 +20,7 @@ def tune(func: Callable, n: int, arg: dict[str, list], run: int = 2**4) -> dict:
     keys = list(arg.keys())
     for combo in itertools.product(*arg.values()):
         kwargs = dict(zip(keys, combo))
-
         ctx = func(n, data, **kwargs)
-
         _time = []
         for _ in range(run):
             Device[Device.DEFAULT].synchronize()
@@ -36,7 +34,6 @@ def tune(func: Callable, n: int, arg: dict[str, list], run: int = 2**4) -> dict:
         if np.median(_time) < best_time:
             best_time = np.median(_time)
             best_kwargs = kwargs
-
     return best_kwargs
 
 
@@ -48,14 +45,12 @@ def plot(res: dict):
         g = np.array(data["gflops"])
         idx = np.argsort(n)
         n, g = n[idx], g[idx]
-
         ax.plot(n, g, label=name)
 
     ax.set_xscale("log", base=2)
     ax.set_ylabel("gflops")
     ax.legend(loc="best")
-
-    plt.savefig("perf.png")
+    plt.savefig("perf.svg")
 
 
 def run(kernel):
@@ -64,7 +59,7 @@ def run(kernel):
         "local_size": [[2**i, 1, 1] for i in range(8, 11)],
     }
     n_list = []
-    for i in range(10, 22):
+    for i in range(10, 21):
         n_list.append(2**i)
         n_list.extend(random.sample(range(2**i, 2 ** (i + 1)), 2**5))
 

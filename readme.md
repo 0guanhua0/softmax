@@ -93,4 +93,4 @@ thread 1 exp(d4 - max) / sum
 ```
 
 # perf
-![perf](perf.png)
+![perf](perf.svg)
