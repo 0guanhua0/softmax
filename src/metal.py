@@ -318,7 +318,9 @@ def _sched(
     fmt = dict(n_pad=n_pad, global_size=global_size, local_size=local_size)
     prog = MetalProgram(
         Device[Device.DEFAULT],
-        TinyELF(name=name, lib=compile(kernel.format(**fmt)), target=Target(), signature=())
+        TinyELF(
+            name=name, lib=compile(kernel.format(**fmt)), target=Target(), signature=()
+        ),
     )
 
     def run_fn():
@@ -510,9 +512,24 @@ def _sched_7(
         buf[n:] = np.finfo(np.float32).min
 
     fmt = dict(n_pad=n_pad, global_size=global_size, local_size=local_size)
-    p1 = MetalProgram(Device[Device.DEFAULT], TinyELF(name="k7_1", lib=compile(k7_1.format(**fmt)), target=Target(), signature=()))
-    p2 = MetalProgram(Device[Device.DEFAULT], TinyELF(name="k7_2", lib=compile(k7_2.format(**fmt)), target=Target(), signature=()))
-    p3 = MetalProgram(Device[Device.DEFAULT], TinyELF(name="k7_3", lib=compile(k7_3.format(**fmt)), target=Target(), signature=()))
+    p1 = MetalProgram(
+        Device[Device.DEFAULT],
+        TinyELF(
+            name="k7_1", lib=compile(k7_1.format(**fmt)), target=Target(), signature=()
+        ),
+    )
+    p2 = MetalProgram(
+        Device[Device.DEFAULT],
+        TinyELF(
+            name="k7_2", lib=compile(k7_2.format(**fmt)), target=Target(), signature=()
+        ),
+    )
+    p3 = MetalProgram(
+        Device[Device.DEFAULT],
+        TinyELF(
+            name="k7_3", lib=compile(k7_3.format(**fmt)), target=Target(), signature=()
+        ),
+    )
 
     dev = Device[Device.DEFAULT]
 
