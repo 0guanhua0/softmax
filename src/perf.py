@@ -2,7 +2,7 @@ import gc
 import itertools
 import random
 import time
-from typing import Callable
+from collections.abc import Callable
 
 import matplotlib.pyplot as plt
 import numpy as np
